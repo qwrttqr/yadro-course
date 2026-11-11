@@ -1,0 +1,4 @@
+log_level: DEBUG
+words_address: localhost:82
+db_address: localhost:1234
+index_ttl: 1m
