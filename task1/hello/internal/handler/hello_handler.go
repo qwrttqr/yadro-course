@@ -3,14 +3,16 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 )
 
 type HelloHandler struct {
+	logger *slog.Logger
 }
 
-func NewHelloHandler() *HelloHandler {
-	return &HelloHandler{}
+func NewHelloHandler(logger *slog.Logger) *HelloHandler {
+	return &HelloHandler{logger: logger}
 }
 
 func (h *HelloHandler) RegisterRoutes(mux *http.ServeMux) {
@@ -27,6 +29,7 @@ func (h *HelloHandler) pingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	resp := helloHandlerResponse{Message: "pong"}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("error while executing request", "err", err)
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 	}
 }
@@ -34,5 +37,8 @@ func (h *HelloHandler) pingHandler(w http.ResponseWriter, r *http.Request) {
 func (h *HelloHandler) helloHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Hello %s", name)))
+	_, err := fmt.Fprintf(w, "Hello %s", name)
+	if err != nil {
+		h.logger.Error("error while executing request", "err", err)
+	}
 }

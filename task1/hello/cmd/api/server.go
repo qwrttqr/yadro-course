@@ -1,25 +1,58 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"yadro.com/course/internal/config"
 	"yadro.com/course/internal/handler"
+	"yadro.com/course/internal/logging"
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() (err error) {
 	var cfg config.ServerConfig
-	if err := cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
-		log.Fatalf("error while reading config: %v", err)
+	var logger *slog.Logger
+	var f *os.File
+
+	if err = cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
+		return fmt.Errorf("error while reading config: %v", err)
 	}
 
-	helloHandler := handler.NewHelloHandler()
-	router := handler.NewRouter(helloHandler)
-	err := http.ListenAndServe(fmt.Sprintf(":%s", cfg.Port), router)
+	f, err = os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+
 	if err != nil {
-		log.Fatalf("error while starting http server: %v", err)
+		return fmt.Errorf("error opening log file %v", err)
 	}
+
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			err = errors.Join(err, fmt.Errorf("error closing log file %v", cerr))
+		}
+	}()
+
+	logger, err = logging.New(cfg.LogLevel, f)
+
+	if err != nil {
+		return fmt.Errorf("error creating logger %v", err)
+	}
+
+	helloHandler := handler.NewHelloHandler(logger)
+	router := handler.NewRouter(helloHandler)
+	err = http.ListenAndServe(fmt.Sprintf(":%s", cfg.Port), router)
+
+	if err != nil {
+		return fmt.Errorf("error while starting http server: %v", err)
+	}
+	return err
 }
