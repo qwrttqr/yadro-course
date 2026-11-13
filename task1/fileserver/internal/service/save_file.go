@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -19,14 +20,37 @@ func NewFileSaver(baseDir string) *FileSaver {
 	return &FileSaver{baseDir: baseDir}
 }
 
+func (s FileSaver) listAllFileNames(folder string) (fileNames []string, err error) {
+	folderEntries, err := os.ReadDir(path.Join(s.baseDir, folder))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return []string{}, nil
+		}
+		return []string{}, fmt.Errorf("reading dir: %w", err)
+	}
+
+	var allFileNames []string
+
+	for _, file := range folderEntries {
+		if !file.IsDir() {
+			allFileNames = append(allFileNames, file.Name())
+		}
+	}
+
+	slices.SortFunc(allFileNames, func(a, b string) int {
+		return strings.Compare(strings.ToLower(a), strings.ToLower(b))
+	})
+	return allFileNames, nil
+}
+
 func (s *FileSaver) SaveFile(folder, name string, src io.Reader) (err error) {
 	dir := filepath.Join(s.baseDir, folder)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create folder: %w", err)
 	}
 
-	path := filepath.Join(dir, name)
-	dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	pathToFile := filepath.Join(dir, name)
+	dst, err := os.OpenFile(pathToFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 
 	if err != nil {
 		return fmt.Errorf("create file: %w", err)
@@ -37,7 +61,7 @@ func (s *FileSaver) SaveFile(folder, name string, src io.Reader) (err error) {
 			err = errors.Join(err, cerr)
 		}
 		if err != nil {
-			_ = os.Remove(path)
+			_ = os.Remove(pathToFile)
 		}
 	}()
 
@@ -48,11 +72,11 @@ func (s *FileSaver) SaveFile(folder, name string, src io.Reader) (err error) {
 }
 
 func (s *FileSaver) ReplaceFile(folder, name string, src io.Reader) (err error) {
-	path := filepath.Join(s.baseDir, folder, name)
-	if _, err := os.Stat(path); err != nil {
+	pathToFile := filepath.Join(s.baseDir, folder, name)
+	if _, err := os.Stat(pathToFile); err != nil {
 		return fmt.Errorf("stat file: %w", err)
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".upload-*")
+	tmp, err := os.CreateTemp(filepath.Dir(pathToFile), ".upload-*")
 
 	if err != nil {
 		return fmt.Errorf("create temp: %w", err)
@@ -82,39 +106,32 @@ func (s *FileSaver) ReplaceFile(folder, name string, src io.Reader) (err error) 
 		return fmt.Errorf("chmod temp: %w", err)
 	}
 
-	return os.Rename(tmp.Name(), path)
+	return os.Rename(tmp.Name(), pathToFile)
 }
 
-func (s *FileSaver) GetFileNames() (fileNames []string, err error) {
-	entries, err := os.ReadDir(s.baseDir)
+func (s *FileSaver) GetFileNames(folder string) (fileNames []string, err error) {
+	return s.listAllFileNames(folder)
+}
+
+func (s *FileSaver) GetFileContent(folder, name string) (io.ReadCloser, error) {
+	filenames, err := s.listAllFileNames(folder)
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return []string{}, nil
-		}
-		return []string{}, fmt.Errorf("reading dir: %w", err)
+		return nil, err
 	}
-	var allFileNames []string
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		subDirPath := filepath.Join(s.baseDir, entry.Name())
-		files, err := os.ReadDir(subDirPath)
-
-		if err != nil {
-			return nil, fmt.Errorf("reading subdir %s: %w", subDirPath, err)
-		}
-
-		for _, file := range files {
-			if !file.IsDir() {
-				allFileNames = append(allFileNames, file.Name())
-			}
+	var targetFileName string
+	for _, v := range filenames {
+		if v == name {
+			targetFileName = v
+			break
 		}
 	}
-
-	slices.SortFunc(allFileNames, func(a, b string) int {
-		return strings.Compare(strings.ToLower(a), strings.ToLower(b))
-	})
-	return allFileNames, nil
+	if targetFileName == "" {
+		return nil, fmt.Errorf("file %q not found in folder %q: %w", name, folder, os.ErrNotExist)
+	}
+	pathToFile := path.Join(s.baseDir, folder, targetFileName)
+	file, err := os.Open(pathToFile)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }

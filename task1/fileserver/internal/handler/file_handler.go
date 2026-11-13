@@ -6,7 +6,9 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"regexp"
 )
 
@@ -14,13 +16,14 @@ const maxUploadSize = 20 << 20
 
 var (
 	validFolderRegex   = regexp.MustCompile(`^[a-zA-Z]+$`)
-	validFileNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$`)
+	validFileNameRegex = regexp.MustCompile(`^[\p{L}\p{N}_-][\p{L}\p{N}._ -]*$`)
 )
 
 type fileSaver interface {
 	SaveFile(folder, name string, src io.Reader) error
 	ReplaceFile(folder, name string, src io.Reader) error
-	GetFileNames() (fileNames []string, err error)
+	GetFileNames(folder string) (fileNames []string, err error)
+	GetFileContent(folder, name string) (io.ReadCloser, error)
 }
 
 type FileHandler struct {
@@ -35,7 +38,9 @@ func NewFileHandler(logger *slog.Logger, saver fileSaver) *FileHandler {
 func (h *FileHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /files", h.uploadNew)
 	mux.HandleFunc("POST /files/{filename}", h.updateExisting)
-
+	mux.HandleFunc("PUT /files/{filename}", h.updateExisting)
+	mux.HandleFunc("GET /files", h.getFiles)
+	mux.HandleFunc("GET /files/{filename}", h.getFileContent)
 }
 
 type uploadResponse struct {
@@ -116,6 +121,7 @@ func (h *FileHandler) updateExisting(w http.ResponseWriter, r *http.Request) {
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
+		h.logger.Error("missing or invalid file", "error", err, "folder", folder, "name", filename)
 		http.Error(w, "missing or invalid file", http.StatusBadRequest)
 		return
 	}
@@ -145,11 +151,18 @@ func (h *FileHandler) updateExisting(w http.ResponseWriter, r *http.Request) {
 }
 
 type getFilesResponse struct {
-	Data []string `json:"data"`
+	FileNames []string `json:"data"`
 }
 
 func (h *FileHandler) getFiles(w http.ResponseWriter, r *http.Request) {
-	filenames, err := h.saver.GetFileNames()
+	folder := r.URL.Query().Get("folder")
+
+	if !validFolderRegex.MatchString(folder) {
+		http.Error(w, "invalid folder name", http.StatusBadRequest)
+		return
+	}
+
+	filenames, err := h.saver.GetFileNames(folder)
 	if err != nil {
 		h.logger.Error("read files", "error", err)
 		http.Error(w, "error reading files", http.StatusInternalServerError)
@@ -157,7 +170,53 @@ func (h *FileHandler) getFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(getFilesResponse{Data: filenames}); err != nil {
+	if err := json.NewEncoder(w).Encode(getFilesResponse{FileNames: filenames}); err != nil {
 		h.logger.Error("encode response", "error", err)
+	}
+}
+
+func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
+	folder := r.URL.Query().Get("folder")
+
+	if !validFolderRegex.MatchString(folder) {
+		http.Error(w, "invalid folder name", http.StatusBadRequest)
+		return
+	}
+
+	filename := r.PathValue("filename")
+
+	if len(filename) > 255 || !validFileNameRegex.MatchString(filename) {
+		http.Error(w, "invalid file name", http.StatusBadRequest)
+		return
+	}
+
+	file, err := h.saver.GetFileContent(folder, filename)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+		h.logger.Error("read files", "error", err)
+		http.Error(w, "error reading files", http.StatusInternalServerError)
+		return
+	}
+
+	if file != nil {
+		defer func() {
+			if cerr := file.Close(); cerr != nil {
+				h.logger.Error("error file close", "error", err)
+			}
+		}()
+	}
+
+	contentType := mime.TypeByExtension(filepath.Ext(filename))
+
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
+
+	if _, err := io.Copy(w, file); err != nil {
+		h.logger.Error("stream file", "error", err)
 	}
 }
