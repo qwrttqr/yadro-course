@@ -6,9 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 )
 
@@ -20,8 +18,8 @@ func NewFileSaver(baseDir string) *FileSaver {
 	return &FileSaver{baseDir: baseDir}
 }
 
-func (s FileSaver) listAllFileNames(folder string) (fileNames []string, err error) {
-	folderEntries, err := os.ReadDir(path.Join(s.baseDir, folder))
+func (s *FileSaver) listAllFileNames(folder string) (fileNames []string, err error) {
+	folderEntries, err := os.ReadDir(filepath.Join(s.baseDir, folder))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return []string{}, nil
@@ -29,17 +27,14 @@ func (s FileSaver) listAllFileNames(folder string) (fileNames []string, err erro
 		return []string{}, fmt.Errorf("reading dir: %w", err)
 	}
 
-	var allFileNames []string
+	allFileNames := make([]string, 0, len(folderEntries))
 
 	for _, file := range folderEntries {
-		if !file.IsDir() {
+		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 			allFileNames = append(allFileNames, file.Name())
 		}
 	}
 
-	slices.SortFunc(allFileNames, func(a, b string) int {
-		return strings.Compare(strings.ToLower(a), strings.ToLower(b))
-	})
 	return allFileNames, nil
 }
 
@@ -128,10 +123,16 @@ func (s *FileSaver) GetFileContent(folder, name string) (io.ReadCloser, error) {
 	if targetFileName == "" {
 		return nil, fmt.Errorf("file %q not found in folder %q: %w", name, folder, os.ErrNotExist)
 	}
-	pathToFile := path.Join(s.baseDir, folder, targetFileName)
+	pathToFile := filepath.Join(s.baseDir, folder, targetFileName)
 	file, err := os.Open(pathToFile)
 	if err != nil {
 		return nil, err
 	}
 	return file, nil
+}
+
+func (s *FileSaver) DeleteFile(folder, name string) error {
+	pathToFile := filepath.Join(s.baseDir, folder, name)
+	err := os.Remove(pathToFile)
+	return err
 }

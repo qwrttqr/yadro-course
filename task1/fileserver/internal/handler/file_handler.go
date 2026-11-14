@@ -24,6 +24,7 @@ type fileSaver interface {
 	ReplaceFile(folder, name string, src io.Reader) error
 	GetFileNames(folder string) (fileNames []string, err error)
 	GetFileContent(folder, name string) (io.ReadCloser, error)
+	DeleteFile(folder, name string) error
 }
 
 type FileHandler struct {
@@ -37,10 +38,11 @@ func NewFileHandler(logger *slog.Logger, saver fileSaver) *FileHandler {
 
 func (h *FileHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /files", h.uploadNew)
-	mux.HandleFunc("POST /files/{filename}", h.updateExisting)
 	mux.HandleFunc("PUT /files/{filename}", h.updateExisting)
 	mux.HandleFunc("GET /files", h.getFiles)
 	mux.HandleFunc("GET /files/{filename}", h.getFileContent)
+	mux.HandleFunc("DELETE /files/{filename}", h.deleteFile)
+
 }
 
 type uploadResponse struct {
@@ -177,6 +179,10 @@ func (h *FileHandler) getFiles(w http.ResponseWriter, r *http.Request) {
 
 func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
 	folder := r.URL.Query().Get("folder")
+	if folder == "" {
+		http.Error(w, "folder must be given", http.StatusBadRequest)
+		return
+	}
 
 	if !validFolderRegex.MatchString(folder) {
 		http.Error(w, "invalid folder name", http.StatusBadRequest)
@@ -204,7 +210,7 @@ func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
 	if file != nil {
 		defer func() {
 			if cerr := file.Close(); cerr != nil {
-				h.logger.Error("error file close", "error", err)
+				h.logger.Error("error file close", "error", cerr)
 			}
 		}()
 	}
@@ -219,4 +225,32 @@ func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, file); err != nil {
 		h.logger.Error("stream file", "error", err)
 	}
+}
+
+func (h *FileHandler) deleteFile(w http.ResponseWriter, r *http.Request) {
+	folder := r.URL.Query().Get("folder")
+	if folder == "" {
+		http.Error(w, "folder must be given", http.StatusBadRequest)
+		return
+	}
+
+	if !validFolderRegex.MatchString(folder) {
+		http.Error(w, "invalid folder name", http.StatusBadRequest)
+		return
+	}
+
+	filename := r.PathValue("filename")
+
+	if len(filename) > 255 || !validFileNameRegex.MatchString(filename) {
+		http.Error(w, "invalid file name", http.StatusBadRequest)
+		return
+	}
+
+	err := h.saver.DeleteFile(folder, filename)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		h.logger.Error("error delete file", "error", err)
+		http.Error(w, "error delete file", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
