@@ -18,8 +18,8 @@ func NewFileSaver(baseDir string) *FileSaver {
 	return &FileSaver{baseDir: baseDir}
 }
 
-func (s *FileSaver) listAllFileNames(folder string) (fileNames []string, err error) {
-	folderEntries, err := os.ReadDir(filepath.Join(s.baseDir, folder))
+func (s *FileSaver) listAllFileNames() (fileNames []string, err error) {
+	folderEntries, err := os.ReadDir(s.baseDir)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return []string{}, nil
@@ -38,14 +38,12 @@ func (s *FileSaver) listAllFileNames(folder string) (fileNames []string, err err
 	return allFileNames, nil
 }
 
-func (s *FileSaver) SaveFile(folder, name string, src io.Reader) (err error) {
-	dir := filepath.Join(s.baseDir, folder)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("create folder: %w", err)
+func (s *FileSaver) SaveFile(name string, src io.Reader) (err error) {
+	pathToFile := filepath.Join(s.baseDir, name)
+	tmp, err := os.CreateTemp(filepath.Dir(pathToFile), ".upload-*")
+	if err != nil {
+		return fmt.Errorf("create temp: %w", err)
 	}
-
-	pathToFile := filepath.Join(dir, name)
-	dst, err := os.OpenFile(pathToFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 
 	if err != nil {
 		return fmt.Errorf("create file: %w", err)
@@ -66,8 +64,8 @@ func (s *FileSaver) SaveFile(folder, name string, src io.Reader) (err error) {
 	return nil
 }
 
-func (s *FileSaver) ReplaceFile(folder, name string, src io.Reader) (err error) {
-	pathToFile := filepath.Join(s.baseDir, folder, name)
+func (s *FileSaver) ReplaceFile(name string, src io.Reader) (err error) {
+	pathToFile := filepath.Join(s.baseDir, name)
 	if _, err := os.Stat(pathToFile); err != nil {
 		return fmt.Errorf("stat file: %w", err)
 	}
@@ -104,12 +102,12 @@ func (s *FileSaver) ReplaceFile(folder, name string, src io.Reader) (err error) 
 	return os.Rename(tmp.Name(), pathToFile)
 }
 
-func (s *FileSaver) GetFileNames(folder string) (fileNames []string, err error) {
-	return s.listAllFileNames(folder)
+func (s *FileSaver) GetFileNames() (fileNames []string, err error) {
+	return s.listAllFileNames()
 }
 
-func (s *FileSaver) GetFileContent(folder, name string) (io.ReadCloser, error) {
-	filenames, err := s.listAllFileNames(folder)
+func (s *FileSaver) GetFileContent(name string) (io.ReadCloser, error) {
+	filenames, err := s.listAllFileNames()
 	if err != nil {
 		return nil, err
 	}
@@ -121,9 +119,9 @@ func (s *FileSaver) GetFileContent(folder, name string) (io.ReadCloser, error) {
 		}
 	}
 	if targetFileName == "" {
-		return nil, fmt.Errorf("file %q not found in folder %q: %w", name, folder, os.ErrNotExist)
+		return nil, fmt.Errorf("file %q not found: %w", name, os.ErrNotExist)
 	}
-	pathToFile := filepath.Join(s.baseDir, folder, targetFileName)
+	pathToFile := filepath.Join(s.baseDir, targetFileName)
 	file, err := os.Open(pathToFile)
 	if err != nil {
 		return nil, err
@@ -131,8 +129,8 @@ func (s *FileSaver) GetFileContent(folder, name string) (io.ReadCloser, error) {
 	return file, nil
 }
 
-func (s *FileSaver) DeleteFile(folder, name string) error {
-	pathToFile := filepath.Join(s.baseDir, folder, name)
+func (s *FileSaver) DeleteFile(name string) error {
+	pathToFile := filepath.Join(s.baseDir, name)
 	err := os.Remove(pathToFile)
 	return err
 }
