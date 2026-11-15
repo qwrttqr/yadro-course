@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -42,10 +42,6 @@ func (h *FileHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /files/{filename}", h.getFileContent)
 	mux.HandleFunc("DELETE /files/{filename}", h.deleteFile)
 
-}
-
-type uploadResponse struct {
-	Name string `json:"name"`
 }
 
 func (h *FileHandler) uploadNew(w http.ResponseWriter, r *http.Request) {
@@ -90,8 +86,8 @@ func (h *FileHandler) uploadNew(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(uploadResponse{Name: filename}); err != nil {
-		h.logger.Error("encode response", "error", err)
+	if _, err := w.Write([]byte(filename)); err != nil {
+		h.logger.Error("write response", "error", err)
 	}
 }
 
@@ -140,10 +136,6 @@ func (h *FileHandler) updateExisting(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-type getFilesResponse struct {
-	FileNames []string `json:"data"`
-}
-
 func (h *FileHandler) getFiles(w http.ResponseWriter, r *http.Request) {
 	filenames, err := h.saver.GetFileNames()
 	if err != nil {
@@ -151,20 +143,19 @@ func (h *FileHandler) getFiles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "error reading files", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(getFilesResponse{FileNames: filenames}); err != nil {
-		h.logger.Error("encode response", "error", err)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	for _, name := range filenames {
+		if _, err := fmt.Fprintln(w, name); err != nil {
+			h.logger.Error("write response", "error", err)
+			return
+		}
 	}
 }
 
 func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
-	folder := r.URL.Query().Get("folder")
-	if folder == "" {
-		http.Error(w, "folder must be given", http.StatusBadRequest)
-		return
-	}
-
 	filename := r.PathValue("filename")
 
 	if len(filename) > 255 || !validFileNameRegex.MatchString(filename) {
@@ -204,12 +195,6 @@ func (h *FileHandler) getFileContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *FileHandler) deleteFile(w http.ResponseWriter, r *http.Request) {
-	folder := r.URL.Query().Get("folder")
-	if folder == "" {
-		http.Error(w, "folder must be given", http.StatusBadRequest)
-		return
-	}
-
 	filename := r.PathValue("filename")
 
 	if len(filename) > 255 || !validFileNameRegex.MatchString(filename) {

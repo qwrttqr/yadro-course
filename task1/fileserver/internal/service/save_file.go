@@ -14,8 +14,12 @@ type FileSaver struct {
 	baseDir string
 }
 
-func NewFileSaver(baseDir string) *FileSaver {
-	return &FileSaver{baseDir: baseDir}
+func NewFileSaver(baseDir string) (*FileSaver, error) {
+	err := os.Mkdir(baseDir, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("error creating temp dir for files: %w", err)
+	}
+	return &FileSaver{baseDir: baseDir}, nil
 }
 
 func (s *FileSaver) listAllFileNames() (fileNames []string, err error) {
@@ -30,7 +34,7 @@ func (s *FileSaver) listAllFileNames() (fileNames []string, err error) {
 	allFileNames := make([]string, 0, len(folderEntries))
 
 	for _, file := range folderEntries {
-		if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+		if !file.IsDir() && !strings.HasPrefix(file.Name(), ".") {
 			allFileNames = append(allFileNames, file.Name())
 		}
 	}
@@ -45,21 +49,30 @@ func (s *FileSaver) SaveFile(name string, src io.Reader) (err error) {
 		return fmt.Errorf("create temp: %w", err)
 	}
 
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-
 	defer func() {
-		if cerr := dst.Close(); cerr != nil {
-			err = errors.Join(err, cerr)
-		}
-		if err != nil {
-			_ = os.Remove(pathToFile)
-		}
+		_ = os.Remove(tmp.Name())
 	}()
 
-	if _, err = io.Copy(dst, src); err != nil {
-		return fmt.Errorf("write file: %w", err)
+	if _, err = io.Copy(tmp, src); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp: %w", err)
+	}
+
+	if err = tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("sync temp: %w", err)
+	}
+
+	if err = tmp.Close(); err != nil {
+		return fmt.Errorf("close temp: %w", err)
+	}
+
+	if err = os.Chmod(tmp.Name(), 0o644); err != nil {
+		return fmt.Errorf("chmod temp: %w", err)
+	}
+
+	if err = os.Link(tmp.Name(), pathToFile); err != nil {
+		return fmt.Errorf("publish file: %w", err)
 	}
 	return nil
 }

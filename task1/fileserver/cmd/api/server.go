@@ -48,7 +48,11 @@ func run() (err error) {
 		return fmt.Errorf("error creating logger %v", err)
 	}
 
-	fileHandler := handler.NewFileHandler(logger, service.NewFileSaver(cfg.BaseDir))
+	fileStoreService, err := service.NewFileSaver(cfg.BaseDir)
+	if err != nil {
+		return err
+	}
+	fileHandler := handler.NewFileHandler(logger, fileStoreService)
 	router := handler.NewRouter(fileHandler)
 	err = http.ListenAndServe(fmt.Sprintf(":%s", cfg.Port), router)
 

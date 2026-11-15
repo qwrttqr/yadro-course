@@ -7,6 +7,4 @@ FROM alpine:3.20
 
 COPY --from=build /fileserver /fileserver
 
-VOLUME [ "/files" ]
-
 ENTRYPOINT [ "/fileserver" ]
