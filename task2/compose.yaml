@@ -20,7 +20,7 @@ services:
     container_name: words
     restart: unless-stopped
     volumes:
-      - ./search-services/words/config.yaml:/config.yaml
+      - ./search-services/config.yaml:/config.yaml
     ports:
       - 28082:8080
     environment:

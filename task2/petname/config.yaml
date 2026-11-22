@@ -1,0 +1,3 @@
+petname_grpc_port: 8080
+log_level: "debug"
+log_file: "log.jsonl"

@@ -1,9 +1,10 @@
 module yadro.com/tests
 
-go 1.25.1
+go 1.27
 
 require (
 	github.com/stretchr/testify v1.9.0
+	
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
 )

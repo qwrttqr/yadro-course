@@ -1,6 +1,6 @@
 module yadro.com/course
 
-go 1.25.1
+go 1.27
 
 require (
 	github.com/BurntSushi/toml v1.6.0 // indirect

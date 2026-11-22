@@ -4,7 +4,7 @@ package petname;
 
 import "google/protobuf/empty.proto";
 
-option go_package = "yadro.com/course/proto/petname";
+option go_package = "yadro.com/course/proto";
 
 message PetnameRequest {
   int64  words     = 1;    
