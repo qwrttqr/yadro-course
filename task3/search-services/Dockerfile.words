@@ -1,11 +1,11 @@
-FROM golang:1.25 AS build
+FROM golang:1.27 AS build
 
 RUN apt update && apt install -y protobuf-compiler
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ENV PATH="$PATH:$(go env GOPATH)/bin"
 
-COPY go.mod go.sum /src/
+COPY . /src
 COPY proto /src/proto
 COPY words /src/words
 
@@ -16,7 +16,7 @@ RUN cd /src && \
 
 
 ENV CGO_ENABLED=0
-RUN cd /src && go build -o /words words/main.go
+RUN cd /src && go build -o /words ./words/cmd/server/
 
 FROM alpine:3.20
 

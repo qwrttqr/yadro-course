@@ -14,6 +14,8 @@ type wordsService interface {
 	Normalize(string) []string
 }
 
+const maxPhraseLen = 4096
+
 type WordsServer struct {
 	wordspb.UnimplementedWordsServer
 	wordsService wordsService
@@ -29,7 +31,7 @@ func (s *WordsServer) Ping(_ context.Context, _ *emptypb.Empty) (*emptypb.Empty,
 }
 
 func (s *WordsServer) Norm(_ context.Context, in *wordspb.WordsRequest) (*wordspb.WordsReply, error) {
-	if len(in.GetPhrase()) > 4096 {
+	if len(in.GetPhrase()) > maxPhraseLen {
 		return nil, status.Error(codes.ResourceExhausted, "phrase too long")
 	}
 	wordsReply := wordspb.WordsReply{Words: s.wordsService.Normalize(in.GetPhrase())}

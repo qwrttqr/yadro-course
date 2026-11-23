@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -18,31 +19,63 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() (err error) {
 	var configPath string
-	flag.StringVar(&configPath, "config", "config.yaml", "server configuration file")
+	var log *slog.Logger
+	var f *os.File
+	flag.StringVar(&configPath, "config", "", "server configuration file")
 	flag.Parse()
 
 	cfg := config.MustLoad(configPath)
 	fmt.Println(cfg)
+	if cfg.LogFile != "" {
+		f, err = os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if cerr := f.Close(); cerr != nil {
+				err = errors.Join(err, fmt.Errorf("error closing log file %v", cerr))
+			}
+		}()
+		log, err = mustMakeLogger(cfg.LogLevel, f)
 
-	log := mustMakeLogger("log level from config")
+		if err != nil {
+			return err
+		}
+	} else {
+		log, err = mustMakeLogger(cfg.LogLevel, nil)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	log.Info("starting server")
 	log.Debug("debug messages are enabled")
 
-	wordsClient, err := words.NewClient("address of words service", log)
+	wordsClient, err := words.NewClient(cfg.WordsAddress, log)
 	if err != nil {
-		log.Error("cannot init words adapter", "error", err)
-		os.Exit(1)
+		return err
 	}
-
 	mux := http.NewServeMux()
-	// mux.Handle("GET /api/words", rest.NewWordsHandler(...)) to be implemented
+	mux.Handle("GET /api/words", rest.NewWordsHandler(log, wordsClient))
 	mux.Handle("GET /ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient}))
 
+	readTimeout, err := time.ParseDuration(cfg.HttpServer.Timeout)
+	if err != nil {
+		return fmt.Errorf("invalid HTTP server timeout %q: %w", cfg.HttpServer.Timeout, err)
+	}
+
 	server := http.Server{
-		Addr:        "localhost:8888",    // replace with address from config
-		ReadTimeout: 10000 * time.Second, // replace with timeout from config
+		Addr:        cfg.HttpServer.Address,
+		ReadTimeout: readTimeout,
 		Handler:     mux,
 	}
 
@@ -52,20 +85,27 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		log.Debug("shutting down server")
-		if err := server.Shutdown(context.Background()); err != nil {
-			log.Error("erroneous shutdown", "error", err)
-		}
+		err = server.Shutdown(context.Background())
 	}()
 
 	if err := server.ListenAndServe(); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server closed unexpectedly", "error", err)
-			return
+			return err
 		}
 	}
-
+	return err
 }
 
-func mustMakeLogger(logLevel string) *slog.Logger {
-	return slog.Default()
+func mustMakeLogger(levelStr string, file io.Writer) (*slog.Logger, error) {
+	var logLevel slog.Level
+	if err := logLevel.UnmarshalText([]byte(levelStr)); err != nil {
+		return nil, err
+	}
+	var handler slog.Handler
+	if file != nil {
+		handler = slog.NewJSONHandler(file, &slog.HandlerOptions{Level: logLevel})
+	} else {
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})
+	}
+	return slog.New(handler), nil
 }

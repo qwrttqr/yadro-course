@@ -14,6 +14,7 @@ services:
     environment:
       - HTTP_SERVER_ADDRESS=:8080
       - WORDS_ADDRESS=words:8080
+    command: ["-config=/config.yaml"]
 
   words:
     image: words:latest
