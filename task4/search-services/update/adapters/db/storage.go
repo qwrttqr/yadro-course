@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -29,7 +30,16 @@ func New(log *slog.Logger, address string) (*DB, error) {
 	}, nil
 }
 
-func (db *DB) Add(ctx context.Context, comics core.Comics) error {
+func (db *DB) Add(ctx context.Context, comics core.Comics) (err error) {
+	words := comics.Words
+	if words == nil {
+		words = []string{}
+	}
+
+	const query = `INSERT INTO comics (id, url, words)	VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`
+	if _, err := db.conn.ExecContext(ctx, query, comics.ID, comics.URL, words); err != nil {
+		return fmt.Errorf("insert comics %d: %w", comics.ID, err)
+	}
 	return nil
 }
 
