@@ -51,7 +51,7 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 
 	// xkcd adapter
-	xkcd, err := xkcd.NewClient(cfg.XKCD.URL, cfg.XKCD.Timeout, log)
+	xkcd, err := xkcd.NewClient(cfg.XKCD.URL, cfg.XKCD.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed create XKCD client: %v", err)
 	}
