@@ -80,21 +80,6 @@ services:
       start_period: 30s
       timeout: 10s
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin4
-    restart: unless-stopped
-    ports:
-      - "18888:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@test.com
-      PGADMIN_DEFAULT_PASSWORD: password
-      PGADMIN_DISABLE_POSTFIX: "true"
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-    depends_on:
-      - postgres
-
 volumes:
   postgres:
   pgadmin:
