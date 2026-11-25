@@ -49,7 +49,7 @@ func (db *DB) Add(ctx context.Context, comics core.Comics) (err error) {
 		return fmt.Errorf("check whether comics: %d, was inserted: %w", comics.ID, err)
 	}
 	if inserted == 0 {
-		return nil
+		return fmt.Errorf("comic %d: %w", comics.ID, core.ErrAlreadyExists)
 	}
 	if len(comics.Words) > 0 {
 		_, err := tx.ExecContext(ctx, `

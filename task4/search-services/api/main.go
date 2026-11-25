@@ -11,7 +11,9 @@ import (
 
 	"yadro.com/course/api/adapters/rest"
 	"yadro.com/course/api/adapters/update"
+	"yadro.com/course/api/adapters/words"
 	"yadro.com/course/api/config"
+	"yadro.com/course/api/core"
 )
 
 func main() {
@@ -26,7 +28,9 @@ func main() {
 	log.Info("starting server")
 	log.Debug("debug messages are enabled")
 
-	updateClient, err := update.NewClient(cfg.UpdateAddress, log)
+	updateClient, err := update.NewClient(cfg.UpdateAddress)
+	wordsClient, err := words.NewClient(cfg.WordsAddress)
+
 	if err != nil {
 		log.Error("cannot init words adapter", "error", err)
 		os.Exit(1)
@@ -37,6 +41,7 @@ func main() {
 	mux.Handle("GET /api/db/stats", rest.NewUpdateStatsHandler(log, updateClient))
 	mux.Handle("GET /api/db/status", rest.NewUpdateStatusHandler(log, updateClient))
 	mux.Handle("DELETE /api/db", rest.NewDropHandler(log, updateClient))
+	mux.Handle("GET /ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient, "update": updateClient}))
 
 	server := http.Server{
 		Addr:        cfg.HTTPConfig.Address,
