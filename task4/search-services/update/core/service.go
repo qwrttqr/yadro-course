@@ -89,9 +89,14 @@ func (s *Service) Update(ctx context.Context) (err error) {
 
 func (s *Service) updateComic(ctx context.Context, id int) error {
 	info, err := s.xkcd.Get(ctx, id)
+
 	if errors.Is(err, ErrNotFound) {
+		if err = s.db.Add(ctx, Comics{ID: info.ID}); err != nil && !errors.Is(err, ErrAlreadyExists) {
+			return fmt.Errorf("record missing comic %d: %w", id, err)
+		}
 		return nil
 	}
+
 	if err != nil {
 		return fmt.Errorf("fetch comic %d: %w", id, err)
 	}
@@ -118,6 +123,7 @@ func (s *Service) Stats(ctx context.Context) (ServiceStats, error) {
 	stats, err := s.db.Stats(ctx)
 	if err != nil {
 		s.log.Error("error getting stats from db", "error", err)
+		return ServiceStats{}, fmt.Errorf("error getting stats from db: %w", err)
 	}
 	lastId, err := s.xkcd.LastID(ctx)
 	if err != nil {

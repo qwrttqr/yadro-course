@@ -41,7 +41,7 @@ func main() {
 	mux.Handle("GET /api/db/stats", rest.NewUpdateStatsHandler(log, updateClient))
 	mux.Handle("GET /api/db/status", rest.NewUpdateStatusHandler(log, updateClient))
 	mux.Handle("DELETE /api/db", rest.NewDropHandler(log, updateClient))
-	mux.Handle("GET /ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient, "update": updateClient}))
+	mux.Handle("GET /api/ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient, "update": updateClient}))
 
 	server := http.Server{
 		Addr:        cfg.HTTPConfig.Address,

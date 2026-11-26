@@ -66,7 +66,7 @@ func run() (err error) {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/words", rest.NewWordsHandler(log, wordsClient))
-	mux.Handle("GET /ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient}))
+	mux.Handle("GET /api/ping", rest.NewPingHandler(log, map[string]core.Pinger{"words": wordsClient}))
 
 	readTimeout, err := time.ParseDuration(cfg.HttpServer.Timeout)
 	if err != nil {

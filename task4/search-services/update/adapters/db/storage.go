@@ -56,7 +56,7 @@ func (db *DB) Add(ctx context.Context, comics core.Comics) (err error) {
 		INSERT INTO words (comics_id, word)
 		SELECT $1, word
 		FROM unnest($2::text[]) AS w(word);
-		`)
+		`, comics.ID, comics.Words)
 		if err != nil {
 			return fmt.Errorf("insert words for comics: %d, %w", comics.ID, err)
 		}
