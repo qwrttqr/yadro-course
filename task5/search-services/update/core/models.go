@@ -27,5 +27,6 @@ type Comics struct {
 type XKCDInfo struct {
 	ID          int
 	URL         string
+	Title       string
 	Description string
 }

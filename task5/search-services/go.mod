@@ -1,6 +1,6 @@
 module yadro.com/course
 
-go 1.25.1
+go 1.27
 
 require (
 	google.golang.org/grpc v1.69.2

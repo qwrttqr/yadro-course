@@ -10,14 +10,13 @@ import (
 	"net"
 	"os"
 
-	"github.com/ilyakaznacheev/cleanenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	searchpb "yadro.com/course/proto/search"
+	"yadro.com/course/search/internal/adapters/db"
 	grpc2 "yadro.com/course/search/internal/adapters/grpc"
 	"yadro.com/course/search/internal/config"
 	"yadro.com/course/search/internal/service"
-
-	wordspb "yadro.com/course/proto/words"
 )
 
 func main() {
@@ -46,9 +45,9 @@ func main() {
 	}
 }
 
-func run(cfg config.ServerConfig, log *slog.Logger) (err error) {
+func run(cfg config.Config, logger *slog.Logger) (err error) {
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.Port))
+	listener, err := net.Listen("tcp", cfg.SearchAddress)
 
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
@@ -60,23 +59,15 @@ func run(cfg config.ServerConfig, log *slog.Logger) (err error) {
 		}
 	}()
 
-	if err = cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
-		return fmt.Errorf("error while reading config: %v", err)
-	}
-
+	dbClient, err := db.New(logger, cfg.DBAddress)
 	if err != nil {
-		return fmt.Errorf("error creating logger %v", err)
+		return err
 	}
-
-	searchService := service.NewSearchService()
-
-	if err = cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
-		return fmt.Errorf("error while reading config: %v", err)
-	}
+	searchService := service.NewSearchService(dbClient, logger)
 
 	server := grpc2.NewSearchServer(searchService, logger)
 	s := grpc.NewServer(grpc.MaxRecvMsgSize(8 << 10))
-	wordspb.RegisterWordsServer(s, server)
+	searchpb.RegisterSearchServer(s, server)
 	reflection.Register(s)
 
 	if err := s.Serve(listener); err != nil {

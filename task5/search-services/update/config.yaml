@@ -1,7 +1,7 @@
 log_level: DEBUG
 update_address: localhost:81
 words_address: localhost:82
-db_address: localhost:1234
+db_address: "postgres://postgres:password@localhost:5432/postgres?sslmode=disable"
 xkcd:
   url: https://xkcd.com
   concurrency: 10

@@ -51,19 +51,19 @@ func run(cfg config.Config, log *slog.Logger) error {
 	}
 
 	// xkcd adapter
-	xkcd, err := xkcd.NewClient(cfg.XKCD.URL, cfg.XKCD.Timeout, log)
+	xkcdClient, err := xkcd.NewClient(cfg.XKCD.URL, cfg.XKCD.Timeout)
 	if err != nil {
 		return fmt.Errorf("failed create XKCD client: %v", err)
 	}
 
 	// words adapter
-	words, err := words.NewClient(cfg.WordsAddress, log)
+	wordsClient, err := words.NewClient(cfg.WordsAddress, log)
 	if err != nil {
 		return fmt.Errorf("failed create Words client: %v", err)
 	}
 
 	// service
-	updater, err := core.NewService(log, storage, xkcd, words, cfg.XKCD.Concurrency)
+	updater, err := core.NewService(log, storage, xkcdClient, wordsClient, cfg.XKCD.Concurrency)
 	if err != nil {
 		return fmt.Errorf("failed create Update service: %v", err)
 	}

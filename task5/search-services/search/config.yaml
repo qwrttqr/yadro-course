@@ -1,3 +1,5 @@
-port: 8080
-log_level: "debug"
+search_address: ":8080"
+db_address: "postgres://postgres:password@localhost:5432/postgres"
+words_address: "localhost:28081"
+log_level: "DEBUG"
 log_file: "log.jsonl"

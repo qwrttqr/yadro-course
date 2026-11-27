@@ -18,5 +18,5 @@ type Updater interface {
 }
 
 type Searcher interface {
-	Search(context.Context, string, int) ([]Comics, error)
+	Search(context.Context, string, int) (SearchResult, error)
 }

@@ -7,5 +7,5 @@ import (
 )
 
 type DB interface {
-	Search(context.Context, []string) (models.SearchResults, error)
+	Search(context.Context, []string, int) (models.SearchResults, error)
 }

@@ -34,7 +34,7 @@ func run() (err error) {
 		return fmt.Errorf("error while reading config: %v", err)
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.Port))
+	listener, err := net.Listen("tcp", cfg.WordsAddress)
 
 	if err != nil {
 		return fmt.Errorf("failed to listen: %v", err)
@@ -45,10 +45,6 @@ func run() (err error) {
 			err = errors.Join(err, fmt.Errorf("error stopping listener %v", cerr))
 		}
 	}()
-
-	if err = cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
-		return fmt.Errorf("error while reading config: %v", err)
-	}
 
 	f, err = os.OpenFile(cfg.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 
@@ -69,10 +65,6 @@ func run() (err error) {
 	}
 
 	wordsNormalizationService := service.NewWordsNormalizationService()
-
-	if err = cleanenv.ReadConfig("config.yaml", &cfg); err != nil {
-		return fmt.Errorf("error while reading config: %v", err)
-	}
 
 	server := grpcserver.NewWordsServer(wordsNormalizationService, logger)
 	s := grpc.NewServer(grpc.MaxRecvMsgSize(8 << 10))

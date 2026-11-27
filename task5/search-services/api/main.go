@@ -10,8 +10,11 @@ import (
 	"os/signal"
 
 	"yadro.com/course/api/adapters/rest"
+	"yadro.com/course/api/adapters/search"
 	"yadro.com/course/api/adapters/update"
+	"yadro.com/course/api/adapters/words"
 	"yadro.com/course/api/config"
+	"yadro.com/course/api/core"
 )
 
 func main() {
@@ -21,22 +24,34 @@ func main() {
 
 	cfg := config.MustLoad(configPath)
 
-	log := mustMakeLogger(cfg.LogLevel)
+	logger := mustMakeLogger(cfg.LogLevel)
 
-	log.Info("starting server")
-	log.Debug("debug messages are enabled")
+	logger.Info("starting server")
+	logger.Debug("debug messages are enabled")
 
-	updateClient, err := update.NewClient(cfg.UpdateAddress, log)
+	updateClient, err := update.NewClient(cfg.UpdateAddress)
 	if err != nil {
-		log.Error("cannot init update adapter", "error", err)
+		logger.Error("cannot init update adapter", "error", err)
+		os.Exit(1)
+	}
+	wordsClient, err := words.NewClient(cfg.WordsAddress)
+	if err != nil {
+		logger.Error("cannot init words adapter", "error", err)
+		os.Exit(1)
+	}
+	searchClient, err := search.NewClient(cfg.SearchAddress)
+	if err != nil {
+		logger.Error("cannot init search adapter", "error", err)
 		os.Exit(1)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /api/db/update", rest.NewUpdateHandler(log, updateClient))
-	mux.Handle("GET /api/db/stats", rest.NewUpdateStatsHandler(log, updateClient))
-	mux.Handle("GET /api/db/status", rest.NewUpdateStatusHandler(log, updateClient))
-	mux.Handle("DELETE /api/db", rest.NewDropHandler(log, updateClient))
+	mux.Handle("POST /api/db/update", rest.NewUpdateHandler(logger, updateClient))
+	mux.Handle("GET /api/db/stats", rest.NewUpdateStatsHandler(logger, updateClient))
+	mux.Handle("GET /api/db/status", rest.NewUpdateStatusHandler(logger, updateClient))
+	mux.Handle("DELETE /api/db", rest.NewDropHandler(logger, updateClient))
+	mux.Handle("GET /api/search", rest.NewSearchHandler(logger, searchClient))
+	mux.Handle("GET /api/ping", rest.NewPingHandler(logger, map[string]core.Pinger{"words": wordsClient, "update": updateClient, "search": searchClient}))
 
 	server := http.Server{
 		Addr:        cfg.HTTPConfig.Address,
@@ -49,16 +64,16 @@ func main() {
 
 	go func() {
 		<-ctx.Done()
-		log.Debug("shutting down server")
+		logger.Debug("shutting down server")
 		if err := server.Shutdown(context.Background()); err != nil {
-			log.Error("erroneous shutdown", "error", err)
+			logger.Error("erroneous shutdown", "error", err)
 		}
 	}()
 
-	log.Info("Running HTTP server", "address", cfg.HTTPConfig.Address)
+	logger.Info("Running HTTP server", "address", cfg.HTTPConfig.Address)
 	if err := server.ListenAndServe(); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
-			log.Error("server closed unexpectedly", "error", err)
+			logger.Error("server closed unexpectedly", "error", err)
 			return
 		}
 	}
@@ -76,6 +91,6 @@ func mustMakeLogger(logLevel string) *slog.Logger {
 	default:
 		panic("unknown log level: " + logLevel)
 	}
-	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level, AddSource: true})
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
 	return slog.New(handler)
 }

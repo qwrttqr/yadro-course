@@ -4,7 +4,7 @@
 // 	protoc        v7.36.0
 // source: search/search.proto
 
-package update
+package search
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -24,7 +24,8 @@ const (
 
 type SearchRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Words         []string               `protobuf:"bytes,1,rep,name=words,proto3" json:"words,omitempty"`
+	Phrase        string                 `protobuf:"bytes,1,opt,name=phrase,proto3" json:"phrase,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,11 +60,18 @@ func (*SearchRequest) Descriptor() ([]byte, []int) {
 	return file_search_search_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *SearchRequest) GetWords() []string {
+func (x *SearchRequest) GetPhrase() string {
 	if x != nil {
-		return x.Words
+		return x.Phrase
 	}
-	return nil
+	return ""
+}
+
+func (x *SearchRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
 }
 
 type SearchReplyUnit struct {
@@ -121,6 +129,7 @@ func (x *SearchReplyUnit) GetUrl() string {
 type SearchReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*SearchReplyUnit     `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	Total         int32                  `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -162,21 +171,30 @@ func (x *SearchReply) GetResults() []*SearchReplyUnit {
 	return nil
 }
 
+func (x *SearchReply) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_search_search_proto protoreflect.FileDescriptor
 
 const file_search_search_proto_rawDesc = "" +
 	"\n" +
-	"\x13search/search.proto\x12\x06update\x1a\x1bgoogle/protobuf/empty.proto\"%\n" +
-	"\rSearchRequest\x12\x14\n" +
-	"\x05words\x18\x01 \x03(\tR\x05words\"3\n" +
+	"\x13search/search.proto\x12\x06search\x1a\x1bgoogle/protobuf/empty.proto\"=\n" +
+	"\rSearchRequest\x12\x16\n" +
+	"\x06phrase\x18\x01 \x01(\tR\x06phrase\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\"3\n" +
 	"\x0fSearchReplyUnit\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\"@\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\"V\n" +
 	"\vSearchReply\x121\n" +
-	"\aresults\x18\x01 \x03(\v2\x17.update.SearchReplyUnitR\aresults2z\n" +
+	"\aresults\x18\x01 \x03(\v2\x17.search.SearchReplyUnitR\aresults\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total2z\n" +
 	"\x06Search\x128\n" +
 	"\x04Ping\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x00\x126\n" +
-	"\x06Search\x12\x15.update.SearchRequest\x1a\x13.update.SearchReply\"\x00B\x1fZ\x1dyadro.com/course/proto/updateb\x06proto3"
+	"\x06Search\x12\x15.search.SearchRequest\x1a\x13.search.SearchReply\"\x00B\x1fZ\x1dyadro.com/course/proto/searchb\x06proto3"
 
 var (
 	file_search_search_proto_rawDescOnce sync.Once
@@ -192,17 +210,17 @@ func file_search_search_proto_rawDescGZIP() []byte {
 
 var file_search_search_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_search_search_proto_goTypes = []any{
-	(*SearchRequest)(nil),   // 0: update.SearchRequest
-	(*SearchReplyUnit)(nil), // 1: update.SearchReplyUnit
-	(*SearchReply)(nil),     // 2: update.SearchReply
+	(*SearchRequest)(nil),   // 0: search.SearchRequest
+	(*SearchReplyUnit)(nil), // 1: search.SearchReplyUnit
+	(*SearchReply)(nil),     // 2: search.SearchReply
 	(*emptypb.Empty)(nil),   // 3: google.protobuf.Empty
 }
 var file_search_search_proto_depIdxs = []int32{
-	1, // 0: update.SearchReply.results:type_name -> update.SearchReplyUnit
-	3, // 1: update.Search.Ping:input_type -> google.protobuf.Empty
-	0, // 2: update.Search.Search:input_type -> update.SearchRequest
-	3, // 3: update.Search.Ping:output_type -> google.protobuf.Empty
-	2, // 4: update.Search.Search:output_type -> update.SearchReply
+	1, // 0: search.SearchReply.results:type_name -> search.SearchReplyUnit
+	3, // 1: search.Search.Ping:input_type -> google.protobuf.Empty
+	0, // 2: search.Search.Search:input_type -> search.SearchRequest
+	3, // 3: search.Search.Ping:output_type -> google.protobuf.Empty
+	2, // 4: search.Search.Search:output_type -> search.SearchReply
 	3, // [3:5] is the sub-list for method output_type
 	1, // [1:3] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

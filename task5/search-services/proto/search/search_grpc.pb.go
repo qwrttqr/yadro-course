@@ -4,7 +4,7 @@
 // - protoc             v7.36.0
 // source: search/search.proto
 
-package update
+package search
 
 import (
 	context "context"
@@ -20,8 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Search_Ping_FullMethodName   = "/update.Search/Ping"
-	Search_Search_FullMethodName = "/update.Search/Search"
+	Search_Ping_FullMethodName   = "/search.Search/Ping"
+	Search_Search_FullMethodName = "/search.Search/Search"
 )
 
 // SearchClient is the client API for Search service.
@@ -143,7 +143,7 @@ func _Search_Search_Handler(srv interface{}, ctx context.Context, dec func(inter
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Search_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "update.Search",
+	ServiceName: "search.Search",
 	HandlerType: (*SearchServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -19,3 +19,12 @@ type Comics struct {
 	ID  int
 	URL string
 }
+
+type SearchResult struct {
+	Results []SearchResultUnit
+	Total   int32
+}
+type SearchResultUnit struct {
+	ID  int
+	URL string
+}
